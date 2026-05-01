@@ -1,86 +1,54 @@
-You are setting up a universal coding agent enhancement stack for this project. Execute every step in order. No explanations — just run the commands and report status after each step.
+You are setting up a universal coding agent enhancement stack for this project. 
+Execute every step in order. No explanations — just run and report status.
 
----
-
-STEP 1 — KARPATHY SKILLS (behavioral rules)
-
-Run:
+STEP 1 — KARPATHY SKILLS
 curl https://raw.githubusercontent.com/forrestchang/andrej-karpathy-skills/main/CLAUDE.md >> CLAUDE.md
+Verify: CLAUDE.md is non-empty.
 
-Verify: CLAUDE.md exists and is non-empty.
-
----
-
-STEP 2 — CONTEXT-MODE (context window protection)
-
-Run:
+STEP 2 — CONTEXT-MODE
 npm install -g context-mode
-
-Then copy the routing file for this platform into the project:
 cp $(npm root -g)/context-mode/configs/claude-code/CLAUDE.md /tmp/ctx-claude.md
 cat /tmp/ctx-claude.md >> CLAUDE.md
+Verify: context-mode doctor passes.
 
-Verify: run `context-mode doctor` and confirm no errors.
-
----
-
-STEP 3 — POCOCK SKILLS (engineering workflow)
-
-Run:
+STEP 3 — POCOCK SKILLS
 npx skills@latest add mattpocock/skills
+Select ALL skills, install locally.
+Then run: /setup-matt-pocock-skills
+(Issue tracker: GitHub, Docs: docs/, Labels: defaults)
 
-When prompted:
-- Install location: this project (local)
-- Select ALL skills
+STEP 4 — FALLOW (codebase intelligence)
+npx skills@latest add fallow-rs/fallow-skills
+fallow setup-hooks
+Verify: fallow --version responds.
 
-Then immediately run:
-/setup-matt-pocock-skills
+STEP 5 — MEMPALACE
+Read https://github.com/sirmews/mempalace README exactly.
+Follow install instructions. Do not invent commands.
+Verify: memory store initialised.
 
-When it asks:
-- Issue tracker: GitHub
-- Docs location: docs/
-- Triage labels: use defaults
-
-Verify: .claude/skills/ or equivalent skills directory exists in this project.
-
----
-
-STEP 4 — MEMPALACE (session memory)
-
-Go to https://github.com/sirmews/mempalace and follow the exact install instructions from that README for this project. Do not guess or invent commands. Read the README first, then install.
-
-Verify: memory store initialised in this project directory.
-
----
-
-STEP 5 — WIRE EVERYTHING TOGETHER
-
-Create or update .claude/settings.json in this project with:
-
+STEP 6 — MCP CONFIG
+Create/update .claude/settings.json:
 {
   "mcpServers": {
-    "context-mode": {
-      "command": "context-mode"
-    }
+    "context-mode": { "command": "context-mode" },
+    "fallow": { "command": "npx", "args": ["-y", "fallow-mcp"] }
   }
 }
 
----
-
-STEP 6 — VERIFY FULL STACK
-
-Run each of the following and confirm they respond:
+STEP 7 — VERIFY
+Run each and confirm response:
 1. context-mode doctor
-2. /caveman  (should activate compressed mode)
-3. ctx stats (should show context-mode is active)
+2. fallow .
+3. /caveman
+4. ctx stats
 
-Report final status as a checklist:
+Report final status:
 [ ] Karpathy Skills — CLAUDE.md updated
 [ ] context-mode — installed and doctor passing
 [ ] Pocock Skills — all skills installed, setup complete
+[ ] Fallow — installed, hooks set, MCP wired
 [ ] MemPalace — memory store active
-[ ] MCP config — context-mode wired
+[ ] MCP config — context-mode + fallow wired
 [ ] Caveman — active
 [ ] ctx stats — responding
-
-If any step fails, read the actual error, do not guess a fix, and report what failed and why.
