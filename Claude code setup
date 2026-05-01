@@ -1,0 +1,86 @@
+You are setting up a universal coding agent enhancement stack for this project. Execute every step in order. No explanations — just run the commands and report status after each step.
+
+---
+
+STEP 1 — KARPATHY SKILLS (behavioral rules)
+
+Run:
+curl https://raw.githubusercontent.com/forrestchang/andrej-karpathy-skills/main/CLAUDE.md >> CLAUDE.md
+
+Verify: CLAUDE.md exists and is non-empty.
+
+---
+
+STEP 2 — CONTEXT-MODE (context window protection)
+
+Run:
+npm install -g context-mode
+
+Then copy the routing file for this platform into the project:
+cp $(npm root -g)/context-mode/configs/claude-code/CLAUDE.md /tmp/ctx-claude.md
+cat /tmp/ctx-claude.md >> CLAUDE.md
+
+Verify: run `context-mode doctor` and confirm no errors.
+
+---
+
+STEP 3 — POCOCK SKILLS (engineering workflow)
+
+Run:
+npx skills@latest add mattpocock/skills
+
+When prompted:
+- Install location: this project (local)
+- Select ALL skills
+
+Then immediately run:
+/setup-matt-pocock-skills
+
+When it asks:
+- Issue tracker: GitHub
+- Docs location: docs/
+- Triage labels: use defaults
+
+Verify: .claude/skills/ or equivalent skills directory exists in this project.
+
+---
+
+STEP 4 — MEMPALACE (session memory)
+
+Go to https://github.com/sirmews/mempalace and follow the exact install instructions from that README for this project. Do not guess or invent commands. Read the README first, then install.
+
+Verify: memory store initialised in this project directory.
+
+---
+
+STEP 5 — WIRE EVERYTHING TOGETHER
+
+Create or update .claude/settings.json in this project with:
+
+{
+  "mcpServers": {
+    "context-mode": {
+      "command": "context-mode"
+    }
+  }
+}
+
+---
+
+STEP 6 — VERIFY FULL STACK
+
+Run each of the following and confirm they respond:
+1. context-mode doctor
+2. /caveman  (should activate compressed mode)
+3. ctx stats (should show context-mode is active)
+
+Report final status as a checklist:
+[ ] Karpathy Skills — CLAUDE.md updated
+[ ] context-mode — installed and doctor passing
+[ ] Pocock Skills — all skills installed, setup complete
+[ ] MemPalace — memory store active
+[ ] MCP config — context-mode wired
+[ ] Caveman — active
+[ ] ctx stats — responding
+
+If any step fails, read the actual error, do not guess a fix, and report what failed and why.
