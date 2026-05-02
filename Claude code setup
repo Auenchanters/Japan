@@ -1,54 +1,220 @@
-You are setting up a universal coding agent enhancement stack for this project. 
-Execute every step in order. No explanations — just run and report status.
+You are setting up the ultimate coding agent enhancement stack for this project.
+Your goal is to maximise three things: context engineering, memory engineering, and
+agent harness engineering. Execute every step in order. No explanations — just run
+and report status after each step.
 
-STEP 1 — KARPATHY SKILLS
+═══════════════════════════════════════════════════════
+LAYER 1 — BEHAVIORAL RULES (harness engineering)
+═══════════════════════════════════════════════════════
+
+STEP 1A — KARPATHY SKILLS
+Run:
 curl https://raw.githubusercontent.com/forrestchang/andrej-karpathy-skills/main/CLAUDE.md >> CLAUDE.md
-Verify: CLAUDE.md is non-empty.
 
-STEP 2 — CONTEXT-MODE
-npm install -g context-mode
-cp $(npm root -g)/context-mode/configs/claude-code/CLAUDE.md /tmp/ctx-claude.md
-cat /tmp/ctx-claude.md >> CLAUDE.md
-Verify: context-mode doctor passes.
-
-STEP 3 — POCOCK SKILLS
+STEP 1B — POCOCK SKILLS
+Run:
 npx skills@latest add mattpocock/skills
 Select ALL skills, install locally.
 Then run: /setup-matt-pocock-skills
-(Issue tracker: GitHub, Docs: docs/, Labels: defaults)
+  - Issue tracker: GitHub
+  - Docs location: docs/
+  - Labels: defaults
 
-STEP 4 — FALLOW (codebase intelligence)
+STEP 1C — BUILD SHARED DOMAIN LANGUAGE
+Create CONTEXT.md in the project root with this structure:
+
+---
+# Project Domain Language
+
+## What This Project Does
+[Claude: read the codebase and write 2-3 sentences describing what this project does]
+
+## Core Terminology
+[Claude: scan the codebase and list all domain-specific terms, function names,
+module names, and concepts that appear frequently — map each to a plain English
+definition so future sessions don't waste tokens re-discovering them]
+
+## Architecture Map
+[Claude: describe the top-level structure — what each folder in src/ does,
+what the entry points are, how data flows through the system]
+
+## Key Decisions Already Made
+[Claude: scan git history and code comments for any architectural decisions,
+and document them here so future sessions don't re-debate them]
+---
+
+Verify: CONTEXT.md exists and is populated with real content from this codebase.
+
+═══════════════════════════════════════════════════════
+LAYER 2 — CONTEXT ENGINEERING
+═══════════════════════════════════════════════════════
+
+STEP 2A — CONTEXT-MODE (sandbox tool output — 98% context reduction)
+Run:
+npm install -g context-mode
+cp $(npm root -g)/context-mode/configs/claude-code/CLAUDE.md /tmp/ctx-claude.md
+cat /tmp/ctx-claude.md >> CLAUDE.md
+Verify: context-mode doctor — all checks pass.
+
+STEP 2B — FALLOW (codebase intelligence — deterministic AST analysis)
+Run:
 npx skills@latest add fallow-rs/fallow-skills
 fallow setup-hooks
-Verify: fallow --version responds.
+Verify: fallow --version responds, hooks are registered.
 
-STEP 5 — MEMPALACE
-Read https://github.com/sirmews/mempalace README exactly.
-Follow install instructions. Do not invent commands.
+STEP 2C — CONTEXT BUDGET RULES
+Append to CLAUDE.md:
+
+## Context Budget Rules
+- Never read a file fully if only a specific function/section is needed — use grep first
+- Never dump raw command output into context — use context-mode sandbox tools
+- Before any multi-file operation, run: fallow . to get a structural map first
+- Use ctx_batch_execute for any task requiring more than 2 shell commands
+- Use ctx_fetch_and_index for any URL research — never raw WebFetch
+- If context usage exceeds 40%, run: ctx stats and prune with ctx_purge if needed
+- Maximum CLAUDE.md size: 100 lines. If it exceeds this, summarise and compress.
+
+═══════════════════════════════════════════════════════
+LAYER 3 — MEMORY ENGINEERING
+═══════════════════════════════════════════════════════
+
+STEP 3A — MEMPALACE (cross-session vector memory)
+Read https://github.com/sirmews/mempalace README.
+Follow exact install instructions. Do not invent commands.
 Verify: memory store initialised.
 
-STEP 6 — MCP CONFIG
+STEP 3B — SESSION SCRATCHPAD
+Create .claude/session-notes.md:
+
+---
+# Session Notes
+_This file is updated by Claude at the end of every task._
+
+## Active Tasks
+- [ ] (none yet)
+
+## Decisions Made
+(log architectural and implementation decisions here)
+
+## Known Issues
+(log bugs found but not yet fixed)
+
+## Completed
+(move finished tasks here with a brief note)
+---
+
+STEP 3C — MEMORY RULES
+Append to CLAUDE.md:
+
+## Memory Rules
+- At the start of every session: read .claude/session-notes.md and CONTEXT.md before anything else
+- After every completed task: update .claude/session-notes.md — move done items to Completed, add new discoveries to Decisions Made
+- If a new domain term is discovered: add it to CONTEXT.md immediately
+- If an architectural decision is made: add it to CONTEXT.md under Key Decisions
+- At session end: summarise what changed in one paragraph at the top of session-notes.md
+
+═══════════════════════════════════════════════════════
+LAYER 4 — AGENT HARNESS ENGINEERING
+═══════════════════════════════════════════════════════
+
+STEP 4A — HERMES AGENT (persistent autonomous background agent)
+Run:
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+hermes mcp serve --background
+Verify: hermes status confirms MCP server is active.
+
+STEP 4B — WIRE ALL MCP SERVERS
 Create/update .claude/settings.json:
+
 {
   "mcpServers": {
-    "context-mode": { "command": "context-mode" },
-    "fallow": { "command": "npx", "args": ["-y", "fallow-mcp"] }
+    "context-mode": {
+      "command": "context-mode"
+    },
+    "fallow": {
+      "command": "npx",
+      "args": ["-y", "fallow-mcp"]
+    },
+    "hermes": {
+      "command": "hermes",
+      "args": ["mcp", "serve"]
+    }
+  },
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Read(.env)",
+      "Read(**/.env*)"
+    ],
+    "allow": [
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(fallow:*)",
+      "Bash(context-mode:*)"
+    ]
   }
 }
 
-STEP 7 — VERIFY
-Run each and confirm response:
+STEP 4C — AGENT HARNESS RULES
+Append to CLAUDE.md:
+
+## Agent Harness Rules
+- Before any feature work: run /grill-with-docs — no exceptions
+- Before any bug fix: run /diagnose — define reproduce steps first
+- All new features: use /tdd — write failing test first, then implement
+- Every week: run /improve-codebase-architecture — prevent entropy
+- If a task has more than 3 steps: write a plan first, get confirmation, then execute
+- If uncertain about scope: use /zoom-out before touching any file
+- Never modify more than one module boundary in a single session
+- Hermes handles all background/scheduled tasks — do not block the IDE session on long-running work
+
+## Session Start Checklist
+1. Read .claude/session-notes.md
+2. Read CONTEXT.md
+3. Run: ctx stats (check context health)
+4. Run: hermes status (check background agent)
+5. Run: fallow . (get current codebase state)
+Then ask: "What are we working on today?"
+
+═══════════════════════════════════════════════════════
+FINAL STEP — VERIFY EVERYTHING
+═══════════════════════════════════════════════════════
+
+Run each and confirm:
 1. context-mode doctor
 2. fallow .
-3. /caveman
-4. ctx stats
+3. hermes status
+4. /caveman
+5. ctx stats
 
-Report final status:
-[ ] Karpathy Skills — CLAUDE.md updated
-[ ] context-mode — installed and doctor passing
-[ ] Pocock Skills — all skills installed, setup complete
-[ ] Fallow — installed, hooks set, MCP wired
-[ ] MemPalace — memory store active
-[ ] MCP config — context-mode + fallow wired
-[ ] Caveman — active
-[ ] ctx stats — responding
+Then output the final checklist:
+
+[ ] LAYER 1 — Behavioral Rules
+    [ ] Karpathy Skills        — CLAUDE.md updated
+    [ ] Pocock Skills          — all installed, /setup complete
+    [ ] CONTEXT.md             — built from real codebase content
+
+[ ] LAYER 2 — Context Engineering
+    [ ] context-mode           — installed, doctor passing
+    [ ] Fallow                 — installed, hooks active
+    [ ] Context budget rules   — appended to CLAUDE.md
+
+[ ] LAYER 3 — Memory Engineering
+    [ ] MemPalace              — memory store active
+    [ ] session-notes.md       — created at .claude/session-notes.md
+    [ ] Memory rules           — appended to CLAUDE.md
+
+[ ] LAYER 4 — Agent Harness
+    [ ] Hermes Agent           — installed, MCP server running
+    [ ] MCP config             — all 3 servers wired in settings.json
+    [ ] Permissions            — deny/allow rules set
+    [ ] Harness rules          — appended to CLAUDE.md
+    [ ] Session start checklist — in CLAUDE.md
+
+[ ] Caveman                    — active (compressed output mode)
+[ ] ctx stats                  — responding
+
+If any step fails: read the actual error, do not guess,
+report exactly what failed and why. Then stop and wait.
