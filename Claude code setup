@@ -32,31 +32,49 @@ Create CONTEXT.md in the project root:
 ## Core Terminology
 [Claude: scan the codebase and list all domain-specific terms, function names,
 module names, and concepts that appear frequently — map each to a plain English
-definition so future sessions don't waste tokens re-discovering them]
+definition so future sessions do not waste tokens re-discovering them]
 
 ## Architecture Map
 [Claude: describe the top-level structure — what each folder in src/ does,
 what the entry points are, how data flows through the system]
 
 ## Key Decisions Already Made
-[Claude: scan git history and code comments for any architectural decisions,
-and document them here so future sessions don't re-debate them]
+[Claude: scan git history and code comments for any architectural decisions
+and document them here so future sessions do not re-debate them]
 ---
 
 Verify: CONTEXT.md exists and is populated with real content from this codebase.
+
+STEP 1D — CLAUDEIGNORE (cut 50-70% of junk token exposure immediately)
+Create .claudeignore in project root:
+
+node_modules/
+dist/
+coverage/
+.firebase/
+public/
+*.log
+*.lock
+package-lock.json
+.git/
+__tests__/snapshots/
+venueflow/.firebase/
+venueflow/node_modules/
+
+Verify: .claudeignore exists in project root.
 
 ═══════════════════════════════════════════════════════
 LAYER 2 — CONTEXT ENGINEERING
 ═══════════════════════════════════════════════════════
 
-STEP 2A — CONTEXT-MODE
+STEP 2A — CONTEXT-MODE (98% context reduction on tool output)
 Run:
 npm install -g context-mode
 cp $(npm root -g)/context-mode/configs/claude-code/CLAUDE.md /tmp/ctx-claude.md
 cat /tmp/ctx-claude.md >> CLAUDE.md
 Verify: context-mode doctor — all checks pass.
 
-STEP 2B — FALLOW
+STEP 2B — FALLOW (deterministic AST codebase intelligence)
 Run:
 npx skills@latest add fallow-rs/fallow-skills
 fallow setup-hooks
@@ -66,22 +84,29 @@ STEP 2C — CONTEXT BUDGET RULES
 Append to CLAUDE.md:
 
 ## Context Budget Rules
-- Never read a file fully if only a specific function/section is needed — use grep first
+- Never read a file fully if only a specific function is needed — use grep first
 - Never dump raw command output into context — use context-mode sandbox tools
 - Before any multi-file operation, run: fallow . to get a structural map first
 - Use ctx_batch_execute for any task requiring more than 2 shell commands
 - Use ctx_fetch_and_index for any URL research — never raw WebFetch
 - If context usage exceeds 40%, run: ctx stats and prune with ctx_purge if needed
-- Maximum CLAUDE.md size: 100 lines. If it exceeds this, summarise and compress.
+- Maximum CLAUDE.md size: 100 lines. If exceeded, summarise and compress before appending
+- For any task with 3+ independent subtasks: spawn parallel sub-agents
+  Example: explore backend/, src/routes/, src/services/ in parallel using
+  separate sub-agents then synthesise findings — never explore sequentially
+- Never do sequential file exploration — parallelise across directories
+- Use git worktrees for any feature that touches more than 2 modules
 
 ═══════════════════════════════════════════════════════
 LAYER 3 — MEMORY ENGINEERING
 ═══════════════════════════════════════════════════════
 
-STEP 3A — MEMPALACE
-Read https://github.com/sirmews/mempalace README.
-Follow exact install instructions. Do not invent commands.
-Verify: memory store initialised.
+STEP 3A — CLAUDE-MEM (LLM-quality session working memory)
+Run:
+npx claude-mem@latest init
+
+Then restart Claude Code completely.
+Verify: claude-mem status responds.
 
 STEP 3B — SESSION SCRATCHPAD
 Create .claude/session-notes.md:
@@ -89,18 +114,19 @@ Create .claude/session-notes.md:
 ---
 # Session Notes
 _Updated by Claude at the end of every task._
+_Maximum 50 lines. Archive to docs/archive/session-YYYY-MM-DD.md when full._
 
 ## Active Tasks
 - [ ] (none yet)
 
 ## Decisions Made
-(log architectural and implementation decisions here)
+(last 3 only — archive older ones)
 
 ## Known Issues
-(log bugs found but not yet fixed)
+(last 3 only — archive older ones)
 
 ## Completed
-(move finished tasks here with a brief note)
+(archive immediately after logging — do not accumulate here)
 ---
 
 STEP 3C — MEMORY BOUNDARY RULES
@@ -108,56 +134,63 @@ Append to CLAUDE.md:
 
 ## Memory Rules
 
-### MemPalace — Session Working Memory (Claude Code only)
-MemPalace handles short-to-medium term memory for active Claude Code sessions.
-Write to MemPalace:
+### claude-mem — Session Working Memory (Claude Code only)
+Write to claude-mem:
 - What happened this session
 - Code patterns discovered in this codebase
 - Errors encountered and how they were fixed
 - File locations of important logic
-Do NOT write to MemPalace:
-- High-level architectural decisions (goes to CONTEXT.md)
-- Long-term project evolution (goes to Hermes)
-- Cross-week patterns (goes to Hermes)
+Do NOT write to claude-mem:
+- High-level architectural decisions → goes to CONTEXT.md
+- Long-term project evolution → goes to Hermes
+- Cross-week patterns → goes to Hermes
 
 ### Hermes — Project Lifecycle Memory (background agent)
-Hermes handles long-term memory across days and weeks.
 Write to Hermes memory:
 - Architectural decisions and why they were made
 - Patterns that repeat across multiple sessions
 - Project evolution and milestone notes
 - Anything that needs to be remembered in 2 weeks
 Do NOT write to Hermes:
-- What happened today (goes to MemPalace + session-notes)
-- File-level implementation details (goes to MemPalace)
+- What happened today → goes to claude-mem + session-notes
+- File-level implementation details → goes to claude-mem
 
-### session-notes.md — The Bridge
-session-notes.md is the handoff layer between MemPalace and Hermes.
+### session-notes.md — The Bridge (size-bounded)
 At the end of each session:
-1. Claude summarises session into session-notes.md
-2. Short-term detail → MemPalace
+1. Summarise session into session-notes.md
+2. Short-term detail → claude-mem
 3. Long-term decisions → Hermes memory
-Never write the same thing to both MemPalace and Hermes.
-If unsure which layer: ask "will I need this in 2 weeks?" Yes → Hermes. No → MemPalace.
+Decision rule: "Will I need this in 2 weeks?" Yes → Hermes. No → claude-mem.
+Never write the same memory to both claude-mem and Hermes.
+
+Size rules — enforced every session end:
+- session-notes.md maximum: 50 lines total
+- When it exceeds 50 lines: archive completed items to
+  docs/archive/session-YYYY-MM-DD.md and reset the file
+- Only keep in the live file at all times:
+  Active Tasks (all) + last 3 Decisions + last 3 Known Issues
+- This prevents startup context injection from growing unbounded
+  across weeks of use — the file stays permanently small
 
 ### General Memory Rules
 - Session start: read .claude/session-notes.md and CONTEXT.md before anything else
 - After every completed task: update .claude/session-notes.md
 - New domain term discovered: add to CONTEXT.md immediately
 - Architectural decision made: add to CONTEXT.md under Key Decisions
-- Session end: summarise what changed at the top of session-notes.md
+- Session end: write a one-paragraph summary at the top of session-notes.md
+- If session-notes.md exceeds 50 lines: archive before ending the session
 
 ═══════════════════════════════════════════════════════
 LAYER 4 — AGENT HARNESS ENGINEERING
 ═══════════════════════════════════════════════════════
 
-STEP 4A — HERMES AGENT
+STEP 4A — HERMES AGENT (persistent autonomous background agent)
 Run:
 curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 hermes mcp serve --background
 Verify: hermes status confirms MCP server is active.
 
-STEP 4B — WIRE ALL MCP SERVERS
+STEP 4B — WIRE ALL MCP SERVERS + AUTO-COMPACT TUNING
 Create/update .claude/settings.json:
 
 {
@@ -169,10 +202,18 @@ Create/update .claude/settings.json:
       "command": "npx",
       "args": ["-y", "fallow-mcp"]
     },
+    "claude-mem": {
+      "command": "npx",
+      "args": ["-y", "claude-mem", "serve"]
+    },
     "hermes": {
       "command": "hermes",
       "args": ["mcp", "serve"]
     }
+  },
+  "env": {
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "600000",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "65"
   },
   "permissions": {
     "deny": [
@@ -188,8 +229,30 @@ Create/update .claude/settings.json:
       "Bash(fallow:*)",
       "Bash(context-mode:*)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{
+          "type": "command",
+          "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE 'rm -rf|sudo|DROP TABLE|truncate'; then echo 'BLOCKED: dangerous command detected'; exit 2; fi"
+        }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [{
+          "type": "command",
+          "command": "npx eslint --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+        }]
+      }
+    ]
   }
 }
+
+Verify: cat .claude/settings.json confirms all 4 MCP servers, hooks, env, and permissions present.
 
 STEP 4C — AGENT HARNESS RULES
 Append to CLAUDE.md:
@@ -199,30 +262,38 @@ Append to CLAUDE.md:
 - Before any bug fix: run /diagnose — define reproduce steps first
 - All new features: use /tdd — write failing test first, then implement
 - Every week: run /improve-codebase-architecture — prevent entropy
-- If a task has more than 3 steps: write a plan first, get confirmation, then execute
+- If a task has more than 3 steps: write a plan, get confirmation, then execute
 - If uncertain about scope: use /zoom-out before touching any file
 - Never modify more than one module boundary in a single session
-- Hermes handles all background/scheduled tasks — do not block the IDE on long-running work
-- If Hermes MCP tool routing fails: restart with `hermes mcp serve` — it is always the first suspect
+- Hermes handles all background/scheduled tasks — never block the IDE on long-running work
+- claude-mem and Hermes serve different time horizons — never duplicate between them
+- If Hermes MCP tool routing fails: restart with hermes mcp serve — always the first suspect
+- Hooks run at the OS level on every write — do not attempt to bypass them
 
 ## Session Start Checklist
 1. Read .claude/session-notes.md
 2. Read CONTEXT.md
-3. Run: ctx stats (check context health)
-4. Run: hermes status (check background agent)
-5. Run: fallow . (get current codebase state)
+3. Run: ctx stats          (check context health)
+4. Run: hermes status      (check background agent)
+5. Run: claude-mem status  (check session memory)
+6. Run: fallow .           (get current codebase state)
+7. Check: wc -l .claude/session-notes.md — if over 50 lines, archive before starting
 Then ask: "What are we working on today?"
 
 ═══════════════════════════════════════════════════════
 FINAL STEP — VERIFY EVERYTHING
 ═══════════════════════════════════════════════════════
 
-Run each and confirm:
+Run each and confirm response:
 1. context-mode doctor
 2. fallow .
 3. hermes status
-4. /caveman
-5. ctx stats
+4. claude-mem status
+5. /caveman
+6. ctx stats
+7. cat .claudeignore
+8. cat .claude/settings.json
+9. wc -l .claude/session-notes.md   (confirm under 50 lines)
 
 Then output the final checklist:
 
@@ -230,26 +301,32 @@ Then output the final checklist:
     [ ] Karpathy Skills        — CLAUDE.md updated
     [ ] Pocock Skills          — all installed, /setup complete
     [ ] CONTEXT.md             — built from real codebase content
+    [ ] .claudeignore          — created, junk dirs excluded
 
 [ ] LAYER 2 — Context Engineering
     [ ] context-mode           — installed, doctor passing
     [ ] Fallow                 — installed, hooks active
     [ ] Context budget rules   — appended to CLAUDE.md
+    [ ] Sub-agent parallel     — rules in CLAUDE.md
 
 [ ] LAYER 3 — Memory Engineering
-    [ ] MemPalace              — memory store active
-    [ ] session-notes.md       — created at .claude/session-notes.md
+    [ ] claude-mem             — initialised, MCP server wired
+    [ ] session-notes.md       — created, under 50 lines
     [ ] Memory boundary rules  — appended to CLAUDE.md
-    [ ] MemPalace scope        — session working memory only
+    [ ] claude-mem scope       — session working memory only
     [ ] Hermes scope           — project lifecycle memory only
-    [ ] session-notes.md       — confirmed as bridge layer
+    [ ] session-notes.md       — size-bounded, archive rule active
+    [ ] Archive path           — docs/archive/ exists
 
 [ ] LAYER 4 — Agent Harness
     [ ] Hermes Agent           — installed, MCP server running
-    [ ] MCP config             — all 3 servers wired in settings.json
+    [ ] MCP config             — all 4 servers wired in settings.json
+    [ ] Auto-compact           — set to 65% threshold
+    [ ] PreToolUse hook        — dangerous command block active
+    [ ] PostToolUse hook       — auto-lint on every write active
     [ ] Permissions            — deny/allow rules set
     [ ] Harness rules          — appended to CLAUDE.md
-    [ ] Session start checklist — in CLAUDE.md
+    [ ] Session start checklist — includes 50-line size check
 
 [ ] Caveman                    — active
 [ ] ctx stats                  — responding
