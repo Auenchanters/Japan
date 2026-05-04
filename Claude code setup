@@ -89,7 +89,7 @@ Verify: rtk gain shows token savings stats. If brew fails try:
 curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh | bash
 
 IMPORTANT: When prompted to patch settings.json automatically — say NO.
-The hook will be merged manually in Step 4B to avoid overwriting existing hooks.
+The hook will be merged manually in Step 4C to avoid overwriting existing hooks.
 
 STEP 2D — CONTEXT BUDGET RULES
 Append to CLAUDE.md:
@@ -234,6 +234,12 @@ Create/update .claude/settings.json:
     "sentrux": {
       "command": "sentrux",
       "args": ["mcp", "serve"]
+    },
+    "browser-harness": {
+      "command": "python",
+      "args": ["-m", "browser_harness.mcp"],
+      "disabled": true,
+      "note": "Enable only when browser automation is needed — E2E testing, scraping, form automation"
     }
   },
   "env": {
@@ -291,7 +297,8 @@ Create/update .claude/settings.json:
   }
 }
 
-Verify: cat .claude/settings.json confirms all 5 MCP servers, merged hooks, env, and permissions present.
+Verify: cat .claude/settings.json confirms all 6 MCP servers wired (browser-harness
+disabled by default), merged hooks, env, and permissions present.
 
 STEP 4D — AGENT HARNESS RULES
 Append to CLAUDE.md:
@@ -314,6 +321,12 @@ Append to CLAUDE.md:
   points in a session: stop, fix the regression, then continue
 - Run: sentrux check . at the start and end of every session
 - Never let sentrux score trend downward across consecutive sessions
+- Browser Harness is DISABLED by default — enable only when a browser automation
+  task is explicitly needed (E2E testing, scraping, form automation, UI testing)
+- To enable browser-harness: set "disabled": false in settings.json, then run:
+  pip install browser-harness and restart Claude Code
+- Never use raw Playwright or Selenium when browser-harness is active —
+  all browser tasks route through browser-harness only
 
 ## Session Start Checklist
 1. Read .claude/session-notes.md
@@ -332,6 +345,42 @@ Then ask: "What are we working on today?"
 3. Update .claude/session-notes.md (summarise, archive if over 50 lines)
 4. Write short-term detail to claude-mem
 5. Write long-term decisions to Hermes
+
+═══════════════════════════════════════════════════════
+LAYER 5 — BROWSER AUTOMATION (activate when needed)
+═══════════════════════════════════════════════════════
+
+Browser Harness is pre-wired but disabled. Activate this layer only when the
+project requires browser automation: E2E testing, scraping, form automation,
+or UI testing. Skip entirely if the project is backend-only.
+
+STEP 5A — INSTALL BROWSER HARNESS
+Run only when needed:
+pip install browser-harness
+python -m browser_harness --version
+Verify: version string responds.
+
+STEP 5B — ENABLE IN MCP CONFIG
+In .claude/settings.json, find the browser-harness entry and change:
+  "disabled": true
+to:
+  "disabled": false
+
+Then restart Claude Code completely.
+Verify: browser-harness MCP server appears in Claude Code tool list.
+
+STEP 5C — BROWSER HARNESS RULES
+When activated, append to CLAUDE.md:
+
+## Browser Harness Rules
+- All browser tasks route through browser-harness — never raw Playwright or Selenium
+- browser-harness uses Chrome CDP directly — ensure Chrome is installed
+- Self-healing is active: if a selector breaks, the agent patches helpers.py
+  automatically — do not manually fix selectors unless healing fails 3 times
+- Use remote browser tier (3 concurrent, free) for headless/CI tasks
+- Use local Chrome only for tasks requiring local cookies or auth sessions
+- After any browser task: run sentrux check . to confirm no quality regression
+- browser-harness findings (broken selectors, healed patterns) → log to claude-mem
 
 ═══════════════════════════════════════════════════════
 FINAL STEP — VERIFY EVERYTHING
@@ -362,7 +411,7 @@ Then output the final checklist:
     [ ] context-mode           — installed, doctor passing
     [ ] Fallow                 — installed, hooks active
     [ ] RTK                    — installed, rtk gain responding
-    [ ] RTK hook               — merged into PreToolUse array
+    [ ] RTK hook               — merged into PreToolUse array (danger block first)
     [ ] Context budget rules   — appended to CLAUDE.md
     [ ] Sub-agent parallel     — rules in CLAUDE.md
 
@@ -378,14 +427,19 @@ Then output the final checklist:
 [ ] LAYER 4 — Agent Harness
     [ ] Hermes Agent           — installed, MCP server running
     [ ] Sentrux                — installed, baseline score recorded
-    [ ] MCP config             — all 5 servers wired in settings.json
+    [ ] MCP config             — all 6 servers wired (browser-harness disabled)
     [ ] Auto-compact           — set to 65% threshold
     [ ] PreToolUse hooks       — danger block + RTK rewrite (both active, in order)
     [ ] PostToolUse hooks      — auto-lint + sentrux check (both active)
     [ ] Permissions            — deny/allow rules set, rtk + sentrux allowed
-    [ ] Harness rules          — appended to CLAUDE.md
+    [ ] Harness rules          — appended to CLAUDE.md including browser-harness rules
     [ ] Session start checklist — includes sentrux + 50-line size check
     [ ] Session end checklist   — includes sentrux score + rtk gain review
+
+[ ] LAYER 5 — Browser Automation
+    [ ] browser-harness        — pre-wired, disabled by default
+    [ ] Activation path        — documented in CLAUDE.md
+    [ ] Enable instructions    — pip install + flip disabled flag
 
 [ ] Caveman                    — active
 [ ] ctx stats                  — responding
