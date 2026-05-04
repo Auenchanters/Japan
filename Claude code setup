@@ -80,12 +80,24 @@ npx skills@latest add fallow-rs/fallow-skills
 fallow setup-hooks
 Verify: fallow --version responds, hooks registered.
 
-STEP 2C — CONTEXT BUDGET RULES
+STEP 2C — RTK (CLI proxy — 60-90% shell output token reduction)
+Run:
+brew install rtk-ai/rtk/rtk
+rtk --version
+rtk gain
+Verify: rtk gain shows token savings stats. If brew fails try:
+curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh | bash
+
+IMPORTANT: When prompted to patch settings.json automatically — say NO.
+The hook will be merged manually in Step 4B to avoid overwriting existing hooks.
+
+STEP 2D — CONTEXT BUDGET RULES
 Append to CLAUDE.md:
 
 ## Context Budget Rules
 - Never read a file fully if only a specific function is needed — use grep first
 - Never dump raw command output into context — use context-mode sandbox tools
+- RTK is active as a transparent proxy — never prefix commands manually with rtk
 - Before any multi-file operation, run: fallow . to get a structural map first
 - Use ctx_batch_execute for any task requiring more than 2 shell commands
 - Use ctx_fetch_and_index for any URL research — never raw WebFetch
@@ -190,7 +202,16 @@ curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 hermes mcp serve --background
 Verify: hermes status confirms MCP server is active.
 
-STEP 4B — WIRE ALL MCP SERVERS + AUTO-COMPACT TUNING
+STEP 4B — SENTRUX (real-time architectural quality sensor)
+Run:
+brew install sentrux
+sentrux --version
+sentrux check .
+Verify: sentrux outputs a quality score (0-10,000) for this codebase.
+Record the baseline score here: BASELINE SENTRUX SCORE = ____
+This score is the architectural north star — never let it trend downward.
+
+STEP 4C — WIRE ALL MCP SERVERS + AUTO-COMPACT TUNING
 Create/update .claude/settings.json:
 
 {
@@ -208,6 +229,10 @@ Create/update .claude/settings.json:
     },
     "hermes": {
       "command": "hermes",
+      "args": ["mcp", "serve"]
+    },
+    "sentrux": {
+      "command": "sentrux",
       "args": ["mcp", "serve"]
     }
   },
@@ -227,34 +252,48 @@ Create/update .claude/settings.json:
       "Bash(npm:*)",
       "Bash(npx:*)",
       "Bash(fallow:*)",
-      "Bash(context-mode:*)"
+      "Bash(context-mode:*)",
+      "Bash(rtk:*)",
+      "Bash(sentrux:*)"
     ]
   },
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "hooks": [{
-          "type": "command",
-          "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE 'rm -rf|sudo|DROP TABLE|truncate'; then echo 'BLOCKED: dangerous command detected'; exit 2; fi"
-        }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE 'rm -rf|sudo|DROP TABLE|truncate'; then echo 'BLOCKED: dangerous command detected'; exit 2; fi"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/rtk-rewrite.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",
-        "hooks": [{
-          "type": "command",
-          "command": "npx eslint --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
-        }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx eslint --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "sentrux check \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
       }
     ]
   }
 }
 
-Verify: cat .claude/settings.json confirms all 4 MCP servers, hooks, env, and permissions present.
+Verify: cat .claude/settings.json confirms all 5 MCP servers, merged hooks, env, and permissions present.
 
-STEP 4C — AGENT HARNESS RULES
+STEP 4D — AGENT HARNESS RULES
 Append to CLAUDE.md:
 
 ## Agent Harness Rules
@@ -269,16 +308,30 @@ Append to CLAUDE.md:
 - claude-mem and Hermes serve different time horizons — never duplicate between them
 - If Hermes MCP tool routing fails: restart with hermes mcp serve — always the first suspect
 - Hooks run at the OS level on every write — do not attempt to bypass them
+- RTK is a transparent proxy — never prefix commands manually with rtk
+- Run: rtk gain --graph at the end of each week to review token savings
+- Sentrux score is the architectural north star — if score drops more than 100
+  points in a session: stop, fix the regression, then continue
+- Run: sentrux check . at the start and end of every session
+- Never let sentrux score trend downward across consecutive sessions
 
 ## Session Start Checklist
 1. Read .claude/session-notes.md
 2. Read CONTEXT.md
-3. Run: ctx stats          (check context health)
-4. Run: hermes status      (check background agent)
-5. Run: claude-mem status  (check session memory)
-6. Run: fallow .           (get current codebase state)
-7. Check: wc -l .claude/session-notes.md — if over 50 lines, archive before starting
+3. Run: ctx stats              (check context health)
+4. Run: hermes status          (check background agent)
+5. Run: claude-mem status      (check session memory)
+6. Run: fallow .               (get current codebase state)
+7. Run: sentrux check .        (record opening quality score)
+8. Check: wc -l .claude/session-notes.md — if over 50 lines, archive before starting
 Then ask: "What are we working on today?"
+
+## Session End Checklist
+1. Run: sentrux check .        (confirm score did not drop >100 from opening)
+2. Run: rtk gain               (review token savings for this session)
+3. Update .claude/session-notes.md (summarise, archive if over 50 lines)
+4. Write short-term detail to claude-mem
+5. Write long-term decisions to Hermes
 
 ═══════════════════════════════════════════════════════
 FINAL STEP — VERIFY EVERYTHING
@@ -289,11 +342,13 @@ Run each and confirm response:
 2. fallow .
 3. hermes status
 4. claude-mem status
-5. /caveman
-6. ctx stats
-7. cat .claudeignore
-8. cat .claude/settings.json
-9. wc -l .claude/session-notes.md   (confirm under 50 lines)
+5. rtk gain
+6. sentrux check .
+7. /caveman
+8. ctx stats
+9. cat .claudeignore
+10. cat .claude/settings.json
+11. wc -l .claude/session-notes.md   (confirm under 50 lines)
 
 Then output the final checklist:
 
@@ -306,6 +361,8 @@ Then output the final checklist:
 [ ] LAYER 2 — Context Engineering
     [ ] context-mode           — installed, doctor passing
     [ ] Fallow                 — installed, hooks active
+    [ ] RTK                    — installed, rtk gain responding
+    [ ] RTK hook               — merged into PreToolUse array
     [ ] Context budget rules   — appended to CLAUDE.md
     [ ] Sub-agent parallel     — rules in CLAUDE.md
 
@@ -320,13 +377,15 @@ Then output the final checklist:
 
 [ ] LAYER 4 — Agent Harness
     [ ] Hermes Agent           — installed, MCP server running
-    [ ] MCP config             — all 4 servers wired in settings.json
+    [ ] Sentrux                — installed, baseline score recorded
+    [ ] MCP config             — all 5 servers wired in settings.json
     [ ] Auto-compact           — set to 65% threshold
-    [ ] PreToolUse hook        — dangerous command block active
-    [ ] PostToolUse hook       — auto-lint on every write active
-    [ ] Permissions            — deny/allow rules set
+    [ ] PreToolUse hooks       — danger block + RTK rewrite (both active, in order)
+    [ ] PostToolUse hooks      — auto-lint + sentrux check (both active)
+    [ ] Permissions            — deny/allow rules set, rtk + sentrux allowed
     [ ] Harness rules          — appended to CLAUDE.md
-    [ ] Session start checklist — includes 50-line size check
+    [ ] Session start checklist — includes sentrux + 50-line size check
+    [ ] Session end checklist   — includes sentrux score + rtk gain review
 
 [ ] Caveman                    — active
 [ ] ctx stats                  — responding
